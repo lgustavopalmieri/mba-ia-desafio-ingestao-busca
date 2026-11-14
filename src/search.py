@@ -1,7 +1,7 @@
 import os
 
 from dotenv import load_dotenv
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain_postgres import PGVector
 
 load_dotenv()
@@ -10,8 +10,8 @@ DATABASE_URL = os.getenv(
     "DATABASE_URL", "postgresql+psycopg://postgres:postgres@localhost:5432/rag"
 )
 COLLECTION_NAME = os.getenv("PG_VECTOR_COLLECTION_NAME", "document_pdf")
-EMBEDDING_MODEL = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
-LLM_MODEL = os.getenv("OPENAI_LLM_MODEL", "gpt-6-luna")
+EMBEDDING_MODEL = os.getenv("GOOGLE_EMBEDDING_MODEL", "models/gemini-embedding-001")
+LLM_MODEL = os.getenv("GOOGLE_LLM_MODEL", "gemini-3.5-flash-lite")
 
 K_RESULTS = 10
 
@@ -45,7 +45,10 @@ RESPONDA A "PERGUNTA DO USUÁRIO"
 
 def get_vector_store() -> PGVector:
     return PGVector(
-        embeddings=OpenAIEmbeddings(model=EMBEDDING_MODEL),
+        # task_type ajusta o vetor da pergunta para o uso pretendido pelo Gemini Embedding
+        embeddings=GoogleGenerativeAIEmbeddings(
+            model=EMBEDDING_MODEL, task_type="retrieval_query"
+        ),
         collection_name=COLLECTION_NAME,
         connection=DATABASE_URL,
         use_jsonb=True,
@@ -65,6 +68,6 @@ def search_prompt(question: str) -> str:
 
 def answer_question(question: str) -> str:
     """Executa o fluxo completo: recupera contexto, monta o prompt e chama a LLM."""
-    llm = ChatOpenAI(model=LLM_MODEL)
+    llm = ChatGoogleGenerativeAI(model=LLM_MODEL)
     response = llm.invoke(search_prompt(question))
     return response.content

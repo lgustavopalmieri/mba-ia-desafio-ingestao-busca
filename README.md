@@ -6,9 +6,9 @@ Sistema de **RAG (Retrieval-Augmented Generation)** que lê um PDF, armazena seu
 
 ### Como funciona
 
-1. **Ingestão** (`src/ingest.py`): o PDF é carregado com `PyPDFLoader`, dividido em chunks de **1000 caracteres com overlap de 150** (`RecursiveCharacterTextSplitter`) e cada chunk é convertido em embedding (`text-embedding-3-small`). Os vetores são salvos no PostgreSQL com a extensão **pgVector** (`langchain-postgres`).
+1. **Ingestão** (`src/ingest.py`): o PDF é carregado com `PyPDFLoader`, dividido em chunks de **1000 caracteres com overlap de 150** (`RecursiveCharacterTextSplitter`) e cada chunk é convertido em embedding (`gemini-embedding-001`). Os vetores são salvos no PostgreSQL com a extensão **pgVector** (`langchain-postgres`).
 2. **Busca** (`src/search.py`): a pergunta é vetorizada e os **10 chunks mais similares** são recuperados com `similarity_search_with_score(k=10)`.
-3. **Resposta** (`src/chat.py`): os chunks recuperados são concatenados em um prompt com regras rígidas (responder apenas com base no contexto; nunca inventar) e enviados à LLM (`gpt-6-luna`), que devolve a resposta ao usuário.
+3. **Resposta** (`src/chat.py`): os chunks recuperados são concatenados em um prompt com regras rígidas (responder apenas com base no contexto; nunca inventar) e enviados à LLM (`gemini-3.5-flash-lite`), que devolve a resposta ao usuário.
 
 ```
 ┌─────────────┐   ┌──────────────┐   ┌──────────────────┐
@@ -24,28 +24,26 @@ Sistema de **RAG (Retrieval-Augmented Generation)** que lê um PDF, armazena seu
 
 ### Tecnologias
 
-| Camada            | Ferramenta                                                         |
-| ----------------- | ------------------------------------------------------------------ |
-| Linguagem         | Python 3                                                           |
-| Framework         | LangChain (`langchain`, `langchain-community`, etc.)               |
-| Banco de dados    | PostgreSQL + pgVector (via `langchain-postgres`)                   |
-| Execução do banco | Docker & Docker Compose                                            |
-| PDF               | `PyPDFLoader` (`langchain_community.document_loaders`)             |
-| Split             | `RecursiveCharacterTextSplitter` (`langchain_text_splitters`)      |
-| Embeddings        | `OpenAIEmbeddings` (`langchain_openai`) — `text-embedding-3-small` |
-| LLM               | `ChatOpenAI` (`langchain_openai`) — `gpt-6-luna`                   |
+| Camada            | Ferramenta                                                                         |
+| ----------------- | ---------------------------------------------------------------------------------- |
+| Linguagem         | Python 3                                                                           |
+| Framework         | LangChain (`langchain`, `langchain-community`, etc.)                               |
+| Banco de dados    | PostgreSQL + pgVector (via `langchain-postgres`)                                   |
+| Execução do banco | Docker & Docker Compose                                                            |
+| PDF               | `PyPDFLoader` (`langchain_community.document_loaders`)                             |
+| Split             | `RecursiveCharacterTextSplitter` (`langchain_text_splitters`)                      |
+| Embeddings        | `GoogleGenerativeAIEmbeddings` (`langchain_google_genai`) — `gemini-embedding-001` |
+| LLM               | `ChatGoogleGenerativeAI` (`langchain_google_genai`) — `gemini-3.5-flash-lite`      |
 
-Os modelos foram escolhidos consultando a [documentação oficial da OpenAI](https://developers.openai.com/api/docs/models): `text-embedding-3-small` é o modelo de embeddings atual e mais barato, e `gpt-6-luna` é o modelo de texto mais eficiente/barato disponível. Ambos podem ser trocados editando as variáveis `OPENAI_EMBEDDING_MODEL` e `OPENAI_LLM_MODEL` no `.env`.
+Os modelos foram escolhidos consultando a [documentação oficial do Google AI Studio](https://aistudio.google.com/docs/models): `gemini-embedding-001` é o modelo de embeddings atual, e `gemini-3.5-flash-lite` é o modelo de texto mais rápido/barato disponível. Ambos podem ser trocados editando as variáveis `GOOGLE_EMBEDDING_MODEL` e `GOOGLE_LLM_MODEL` no `.env`.
 
 ### Pré-requisitos
 
 - [Docker](https://docs.docker.com/get-docker/) e Docker Compose
 - Python **3.11, 3.12 ou 3.13** (recomendado: **3.13**)
-- Uma [API key da OpenAI](https://platform.openai.com/api-keys)
+- Uma [API key do Google AI Studio](https://aistudio.google.com/apikey)
 
 ### Preparando o Python 3.13
-
-Use um dos canais abaixo para obter o 3.13:
 
 #### Ubuntu (PPA deadsnakes)
 
@@ -56,25 +54,6 @@ sudo apt install -y python3.13 python3.13-venv
 python3.13 --version
 ```
 
-#### Qualquer sistema (uv)
-
-Baixa um Python 3.13 oficial automaticamente, sem sudo — funciona igual em Linux, macOS e Windows:
-
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-source ~/.bashrc
-
-cd mba-ia-desafio-ingestao-busca   # ajuste para o caminho onde está o repositório
-uv venv --python 3.13 venv
-source venv/bin/activate    # no Windows: venv\Scripts\activate
-python --version            # deve imprimir 3.13.x
-```
-
-#### Windows/macOS sem uv
-
-- **Windows**: instale o Python 3.13 pelo [site oficial](https://www.python.org/downloads/) (marque "Add python.exe to PATH"), crie o venv com `py -3.13 -m venv venv` e ative com `venv\Scripts\activate`.
-- **macOS**: `brew install python@3.13` e crie o venv com `python3.13 -m venv venv`.
-
 ### Como executar
 
 1. **Crie e ative o ambiente virtual com o Python 3.13**
@@ -84,8 +63,6 @@ python --version            # deve imprimir 3.13.x
    source venv/bin/activate
    python --version   # deve imprimir 3.13.x — se for 3.14, veja "Preparando o Python 3.13"
    ```
-
-   No Windows, use `py -3.13 -m venv venv` e ative com `venv\Scripts\activate`.
 
 2. **Instale as dependências**
 
@@ -102,7 +79,7 @@ python --version            # deve imprimir 3.13.x
    Edite o `.env` e preencha a sua chave:
 
    ```
-   OPENAI_API_KEY=sk-...
+   GOOGLE_API_KEY=...
    ```
 
    Os demais valores já vêm com padrões compatíveis com o `docker-compose.yml`.
@@ -174,7 +151,7 @@ python --version            # deve imprimir 3.13.x
 
 | Sintoma                                                    | Causa provável                                                    | Solução                                                                                                             |
 | ---------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `Não foi possível responder...`                            | Banco desligado ou `OPENAI_API_KEY` vazia                         | `docker compose up -d` e confira o `.env`                                                                           |
+| `Não foi possível responder...`                            | Banco desligado ou `GOOGLE_API_KEY` vazia                         | `docker compose up -d` e confira o `.env`                                                                           |
 | Erro de dimensão do vetor                                  | Trocou o modelo de embeddings após a ingestão                     | Execute `python src/ingest.py` novamente (recria a collection)                                                      |
 | Banco em estado inconsistente                              | Dados antigos de testes                                           | `docker compose down -v && docker compose up -d` e refaça a ingestão                                                |
 | `ModuleNotFoundError: No module named 'dotenv'`            | `pip install` não concluiu (venv vazio — normalmente Python 3.14) | Confira `python --version` (3.13), recrie o venv e rode `pip install -r requirements.txt`                           |

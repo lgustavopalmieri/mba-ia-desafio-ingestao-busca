@@ -2,7 +2,7 @@ import os
 
 from dotenv import load_dotenv
 from langchain_community.document_loaders import PyPDFLoader
-from langchain_openai import OpenAIEmbeddings
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_postgres import PGVector
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
@@ -13,7 +13,7 @@ DATABASE_URL = os.getenv(
     "DATABASE_URL", "postgresql+psycopg://postgres:postgres@localhost:5432/rag"
 )
 COLLECTION_NAME = os.getenv("PG_VECTOR_COLLECTION_NAME", "document_pdf")
-EMBEDDING_MODEL = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
+EMBEDDING_MODEL = os.getenv("GOOGLE_EMBEDDING_MODEL", "models/gemini-embedding-001")
 
 CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 150
@@ -34,7 +34,10 @@ def ingest_pdf() -> None:
     print(f"{len(chunks)} chunks gerados ({CHUNK_SIZE} caracteres, overlap {CHUNK_OVERLAP})")
 
     vector_store = PGVector(
-        embeddings=OpenAIEmbeddings(model=EMBEDDING_MODEL),
+        # task_type ajusta o vetor para o uso pretendido pelo Gemini Embedding
+        embeddings=GoogleGenerativeAIEmbeddings(
+            model=EMBEDDING_MODEL, task_type="retrieval_document"
+        ),
         collection_name=COLLECTION_NAME,
         connection=DATABASE_URL,
         use_jsonb=True,
@@ -54,5 +57,5 @@ if __name__ == "__main__":
         print(f"Falha na ingestão: {error}")
         print(
             "Verifique se o banco está ativo (docker compose up -d) "
-            "e se OPENAI_API_KEY está configurada no .env"
+            "e se GOOGLE_API_KEY está configurada no .env"
         )
