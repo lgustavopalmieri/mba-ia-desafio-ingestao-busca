@@ -4,55 +4,11 @@
 
 Sistema de **RAG (Retrieval-Augmented Generation)** que lê um PDF, armazena seu conteúdo em um banco **PostgreSQL + pgVector** e responde perguntas via **CLI**, usando apenas o conteúdo do documento como fonte de verdade.
 
-### Como funciona
-
-1. **Ingestão** (`src/ingest.py`): o PDF é carregado com `PyPDFLoader`, dividido em chunks de **1000 caracteres com overlap de 150** (`RecursiveCharacterTextSplitter`) e cada chunk é convertido em embedding (`gemini-embedding-001`). Os vetores são salvos no PostgreSQL com a extensão **pgVector** (`langchain-postgres`).
-2. **Busca** (`src/search.py`): a pergunta é vetorizada e os **10 chunks mais similares** são recuperados com `similarity_search_with_score(k=10)`.
-3. **Resposta** (`src/chat.py`): os chunks recuperados são concatenados em um prompt com regras rígidas (responder apenas com base no contexto; nunca inventar) e enviados à LLM (`gemini-3.5-flash-lite`), que devolve a resposta ao usuário.
-
-```
-┌─────────────┐   ┌──────────────┐   ┌──────────────────┐
-│ document.pdf│ → │   ingest.py  │ → │ PostgreSQL+pgVector│
-└─────────────┘   │ (split+embed)│   │  (vetores)        │
-                  └──────────────┘   └────────┬─────────┘
-                                              │ k=10 mais similares
-┌─────────────┐   ┌──────────────┐            │
-│  chat.py    │ → │  search.py   │ ←──────────┘
-│ (CLI)       │   │ (prompt+LLM) │
-└─────────────┘   └──────────────┘
-```
-
-### Tecnologias
-
-| Camada            | Ferramenta                                                                         |
-| ----------------- | ---------------------------------------------------------------------------------- |
-| Linguagem         | Python 3                                                                           |
-| Framework         | LangChain (`langchain`, `langchain-community`, etc.)                               |
-| Banco de dados    | PostgreSQL + pgVector (via `langchain-postgres`)                                   |
-| Execução do banco | Docker & Docker Compose                                                            |
-| PDF               | `PyPDFLoader` (`langchain_community.document_loaders`)                             |
-| Split             | `RecursiveCharacterTextSplitter` (`langchain_text_splitters`)                      |
-| Embeddings        | `GoogleGenerativeAIEmbeddings` (`langchain_google_genai`) — `gemini-embedding-001` |
-| LLM               | `ChatGoogleGenerativeAI` (`langchain_google_genai`) — `gemini-3.5-flash-lite`      |
-
-Os modelos foram escolhidos consultando a [documentação oficial do Google AI Studio](https://aistudio.google.com/docs/models): `gemini-embedding-001` é o modelo de embeddings atual, e `gemini-3.5-flash-lite` é o modelo de texto mais rápido/barato disponível. Ambos podem ser trocados editando as variáveis `GOOGLE_EMBEDDING_MODEL` e `GOOGLE_LLM_MODEL` no `.env`.
-
 ### Pré-requisitos
 
 - [Docker](https://docs.docker.com/get-docker/) e Docker Compose
 - Python **3.11, 3.12 ou 3.13** (recomendado: **3.13**)
 - Uma [API key do Google AI Studio](https://aistudio.google.com/apikey)
-
-### Preparando o Python 3.13
-
-#### Ubuntu (PPA deadsnakes)
-
-```bash
-sudo add-apt-repository ppa:deadsnakes/ppa -y
-sudo apt update
-sudo apt install -y python3.13 python3.13-venv
-python3.13 --version
-```
 
 ### Como executar
 
@@ -61,7 +17,6 @@ python3.13 --version
    ```bash
    python3.13 -m venv venv
    source venv/bin/activate
-   python --version   # deve imprimir 3.13.x — se for 3.14, veja "Preparando o Python 3.13"
    ```
 
 2. **Instale as dependências**
@@ -116,20 +71,38 @@ python3.13 --version
    python src/chat.py
    ```
 
-   Exemplo de uso:
+Os modelos foram escolhidos consultando a [documentação oficial do Google AI Studio](https://aistudio.google.com/docs/models): `gemini-embedding-001` é o modelo de embeddings atual, e `gemini-3.5-flash-lite` é o modelo de texto mais rápido/barato disponível. Ambos podem ser trocados editando as variáveis `GOOGLE_EMBEDDING_MODEL` e `GOOGLE_LLM_MODEL` no `.env`.
 
-   ```
-   Chat iniciado. Digite sua pergunta ou 'sair' para encerrar.
+### Como funciona
 
-   PERGUNTA: Qual o faturamento da Empresa SuperTechIABrazil?
-   RESPOSTA: O faturamento foi de R$ 10.000.000,00.
+1. **Ingestão** (`src/ingest.py`): o PDF é carregado com `PyPDFLoader`, dividido em chunks de **1000 caracteres com overlap de 150** (`RecursiveCharacterTextSplitter`) e cada chunk é convertido em embedding (`gemini-embedding-001`). Os vetores são salvos no PostgreSQL com a extensão **pgVector** (`langchain-postgres`).
+2. **Busca** (`src/search.py`): a pergunta é vetorizada e os **10 chunks mais similares** são recuperados com `similarity_search_with_score(k=10)`.
+3. **Resposta** (`src/chat.py`): os chunks recuperados são concatenados em um prompt com regras rígidas (responder apenas com base no contexto; nunca inventar) e enviados à LLM (`gemini-3.5-flash-lite`), que devolve a resposta ao usuário.
 
-   PERGUNTA: Quantos clientes temos em 2024?
-   RESPOSTA: Não tenho informações necessárias para responder sua pergunta.
+```
+┌─────────────┐   ┌──────────────┐   ┌──────────────────┐
+│ document.pdf│ → │   ingest.py  │ → │ PostgreSQL+pgVector│
+└─────────────┘   │ (split+embed)│   │  (vetores)        │
+                  └──────────────┘   └────────┬─────────┘
+                                              │ k=10 mais similares
+┌─────────────┐   ┌──────────────┐            │
+│  chat.py    │ → │  search.py   │ ←──────────┘
+│ (CLI)       │   │ (prompt+LLM) │
+└─────────────┘   └──────────────┘
+```
 
-   PERGUNTA: sair
-   Encerrando o chat. Até mais!
-   ```
+### Tecnologias
+
+| Camada            | Ferramenta                                                                         |
+| ----------------- | ---------------------------------------------------------------------------------- |
+| Linguagem         | Python 3                                                                           |
+| Framework         | LangChain (`langchain`, `langchain-community`, etc.)                               |
+| Banco de dados    | PostgreSQL + pgVector (via `langchain-postgres`)                                   |
+| Execução do banco | Docker & Docker Compose                                                            |
+| PDF               | `PyPDFLoader` (`langchain_community.document_loaders`)                             |
+| Split             | `RecursiveCharacterTextSplitter` (`langchain_text_splitters`)                      |
+| Embeddings        | `GoogleGenerativeAIEmbeddings` (`langchain_google_genai`) — `gemini-embedding-001` |
+| LLM               | `ChatGoogleGenerativeAI` (`langchain_google_genai`) — `gemini-3.5-flash-lite`      |
 
 ### Estrutura do projeto
 
@@ -173,4 +146,13 @@ docker compose down
 
 # Parar tudo e apagar o volume (recomeçar do zero)
 docker compose down -v
+```
+
+#### Preparando o Python 3.13
+
+```bash
+sudo add-apt-repository ppa:deadsnakes/ppa -y
+sudo apt update
+sudo apt install -y python3.13 python3.13-venv
+python3.13 --version
 ```
